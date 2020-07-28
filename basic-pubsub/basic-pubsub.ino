@@ -1,3 +1,8 @@
+/* 
+ *  Documentation: https://aws.amazon.com/blogs/compute/building-an-aws-iot-core-device-using-aws-serverless-and-an-esp32/
+ *  Original github: https://github.com/aws-samples/aws-iot-esp32-arduino-examples
+ *  Project github: https://github.com/milljohn/arduino-aws-thing
+*/
 /*
   Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
   Permission is hereby granted, free of charge, to any person obtaining a copy of this
