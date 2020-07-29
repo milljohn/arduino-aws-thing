@@ -24,13 +24,33 @@
 #include <MQTTClient.h>
 #include <ArduinoJson.h>
 #include "WiFi.h"
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 
 // The MQTT topics that this device should publish/subscribe
 #define AWS_IOT_PUBLISH_TOPIC   "esp32/pub"
 #define AWS_IOT_SUBSCRIBE_TOPIC "esp32/sub"
 
+// ds18b20 attached on onewire pin
+#define ONE_WIRE_BUS 18
+
+#define uS_TO_S_FACTOR 1000000ULL  /* Conversion factor for micro seconds to seconds */
+#define TIME_TO_SLEEP  60*60        /* Time ESP32 will go to sleep (in seconds) */
+
+// Define NTP Client to get time
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP);
+
 WiFiClientSecure net = WiFiClientSecure();
 MQTTClient client = MQTTClient(256);
+
+// OneWire data pin
+OneWire oneWire(ONE_WIRE_BUS);
+
+// read the onewire data
+DallasTemperature sensors(&oneWire);
 
 void connectAWS()
 {
@@ -75,12 +95,19 @@ void connectAWS()
 
 void publishMessage()
 {
+  Serial.println("Publishing message to topic");
+  
+  sensors.requestTemperatures();
+  
   StaticJsonDocument<200> doc;
-  doc["time"] = millis();
-  doc["sensor_a0"] = analogRead(0);
+  doc["hardwareId"] = WiFi.macAddress();
+  doc["temperature"] = sensors.getTempCByIndex(0);
+  doc["time"] = timeClient.getFormattedDate();
   char jsonBuffer[512];
   serializeJson(doc, jsonBuffer); // print to client
-
+  
+//  Serial.println(doc);
+  
   client.publish(AWS_IOT_PUBLISH_TOPIC, jsonBuffer);
 }
 
@@ -95,10 +122,24 @@ void messageHandler(String &topic, String &payload) {
 void setup() {
   Serial.begin(9600);
   connectAWS();
+  sensors.begin();
+
+  // Initialize a NTPClient to get time
+  timeClient.begin();
+  // Set offset time in seconds to adjust for your timezone, for example:
+  // GMT +1 = 3600
+  // GMT +8 = 28800
+  // GMT -1 = -3600
+  // GMT 0 = 0
+  timeClient.setTimeOffset(-25200);
 }
 
 void loop() {
+  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
   publishMessage();
   client.loop();
-  delay(1000);
+  Serial.println("going to sleep now");
+  esp_deep_sleep_start();
+//  delay(1000);
+  
 }
